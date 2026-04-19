@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_BASE_URL } from '../config';
 import ReactMarkdown from 'react-markdown';
 import { Sparkles, Brain, TrendingUp, AlertTriangle, Lightbulb, RefreshCw, Zap } from 'lucide-react';
 
@@ -12,8 +13,8 @@ const AIAnalyst = ({ salesmanName }) => {
         setError('');
         try {
             const url = salesmanName 
-                ? `http://localhost:5000/api/ai/analysis?salesmanName=${encodeURIComponent(salesmanName)}`
-                : 'http://localhost:5000/api/ai/analysis';
+                ? `${API_BASE_URL}/ai/analysis?salesmanName=${encodeURIComponent(salesmanName)}`
+                : `${API_BASE_URL}/ai/analysis`;
             const response = await fetch(url);
             const data = await response.json();
             if (data.analysis) {

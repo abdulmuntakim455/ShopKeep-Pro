@@ -14,12 +14,7 @@ import SalesmanDashboard from "./components/SalesmanDashboard";
 import ItemList from "./components/ItemList";
 import Customers from "./components/Customers";
 import AIAnalyst from "./components/AIAnalyst";
-
-// Configuration for Backend
-const API_BASE_URL = import.meta.env.VITE_API_URL || 
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-    ? 'http://localhost:5000/api' 
-    : '/api'); // Default to relative path for Vercel same-domain deployment
+import { API_BASE_URL } from "./config";
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);

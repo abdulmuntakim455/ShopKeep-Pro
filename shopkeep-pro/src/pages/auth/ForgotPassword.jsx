@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE_URL } from "../../config";
 
 const ForgotPassword = ({ setShowForgot }) => {
   const [step, setStep] = useState(1);

@@ -1,6 +1,5 @@
 import { useState } from "react";
-
-const API_BASE_URL = 'http://localhost:5000/api';
+import { API_BASE_URL } from "../../config";
 
 const SalesmanLogin = ({ setIsAuthenticated, setRole }) => {
   const [loginMethod, setLoginMethod] = useState("password"); // 'password' or 'otp'

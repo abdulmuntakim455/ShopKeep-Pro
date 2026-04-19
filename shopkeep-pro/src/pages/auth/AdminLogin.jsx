@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ForgotPassword from "./ForgotPassword";
+import { API_BASE_URL } from "../../config";
 
 const AdminLogin = ({ setIsAuthenticated, setRole }) => {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -8,7 +9,7 @@ const AdminLogin = ({ setIsAuthenticated, setRole }) => {
 
   const handleLogin = async () => {
   try {
-    const res = await fetch("http://localhost:5000/api/auth/login", {
+    const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

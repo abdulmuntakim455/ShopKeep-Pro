@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Plus, ArrowLeft, Calendar, FileText, Edit, Trash2 } from "lucide-react";
-
-const API_BASE_URL = 'http://localhost:5000/api';
+import { API_BASE_URL } from "../config";
 
 const Salesmen = ({ sales = [] }) => {
   const generateSalesmanId = () => {
