@@ -22,7 +22,12 @@ app.use("/api/auth", authRoutes);
 
 // 🔹 HEALTH CHECK (For testing if server is alive)
 app.get('/api/health', (req, res) => {
-  res.json({ status: "alive", message: "ShopKeep Pro Backend is running!", time: new Date() });
+  res.json({ 
+    status: "alive", 
+    mongodb: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    message: "ShopKeep Pro Backend is running!", 
+    time: new Date() 
+  });
 });
 
 // 🔹 CONNECT MONGODB

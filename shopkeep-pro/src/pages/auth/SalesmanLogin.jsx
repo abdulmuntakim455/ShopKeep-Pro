@@ -44,7 +44,7 @@ const SalesmanLogin = ({ setIsAuthenticated, setRole }) => {
         setError(data.msg || "Login failed");
       }
     } catch (err) {
-      setError("Server error");
+      setError(`Network Error: ${err.message}. Please check your Vercel VITE_API_URL and ensure your Backend is running.`);
     }
   };
 
@@ -63,7 +63,7 @@ const SalesmanLogin = ({ setIsAuthenticated, setRole }) => {
         setError(data.msg || "Failed to send OTP for first login verification");
       }
     } catch (err) {
-      setError("Server error");
+      setError(`Network Error: ${err.message}. Please check your Vercel VITE_API_URL and ensure your Backend is running.`);
     }
   };
 
@@ -117,7 +117,7 @@ const SalesmanLogin = ({ setIsAuthenticated, setRole }) => {
         setError(data.msg || "Failed to send OTP");
       }
     } catch (err) {
-      setError("Server error");
+      setError(`Network Error: ${err.message}. Please check your Vercel VITE_API_URL and ensure your Backend is running.`);
     }
   };
 
@@ -151,7 +151,7 @@ const SalesmanLogin = ({ setIsAuthenticated, setRole }) => {
         setError(data.msg || "Invalid OTP");
       }
     } catch (err) {
-      setError("Server error");
+      setError(`Network Error: ${err.message}. Please check your Vercel VITE_API_URL and ensure your Backend is running.`);
     }
   };
 
