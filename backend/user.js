@@ -1,0 +1,2 @@
+otp: String,
+otpExpiry: Date,

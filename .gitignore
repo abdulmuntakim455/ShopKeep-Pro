@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+
+# environment variables
+**/.env
+.env.local
+.env.*.local
+
+# build files
+dist/
+build/
+shopkeep-pro/dist
+backend/dist
+
+# logs
+*.log
+
+# editor/system files
+.vscode/
+.DS_Store
+
+# optional
+coverage/

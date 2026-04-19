@@ -1,0 +1,137 @@
+[
+    {
+        "name": "Premium Basmati Rice (5kg)",
+        "category": "Grocery",
+        "price": 550,
+        "costPrice": 480,
+        "stock": 25,
+        "minStock": 10,
+        "expiryDate": "2026-12-01"
+    },
+    {
+        "name": "Fortune Sunflower Oil (1L)",
+        "category": "Grocery",
+        "price": 185,
+        "costPrice": 160,
+        "stock": 40,
+        "minStock": 15,
+        "expiryDate": "2025-08-15"
+    },
+    {
+        "name": "Tata Tea Premium (500g)",
+        "category": "Beverages",
+        "price": 240,
+        "costPrice": 210,
+        "stock": 15,
+        "minStock": 5,
+        "expiryDate": "2026-05-20"
+    },
+    {
+        "name": "Amul Butter (500g)",
+        "category": "Dairy",
+        "price": 275,
+        "costPrice": 245,
+        "stock": 8,
+        "minStock": 10,
+        "expiryDate": "2024-06-10"
+    },
+    {
+        "name": "Britannia Marie Gold",
+        "category": "Snacks",
+        "price": 35,
+        "costPrice": 28,
+        "stock": 100,
+        "minStock": 20,
+        "expiryDate": "2025-03-12"
+    },
+    {
+        "name": "Dettol Liquid Soap (250ml)",
+        "category": "Personal Care",
+        "price": 99,
+        "costPrice": 75,
+        "stock": 30,
+        "minStock": 10,
+        "expiryDate": "2027-01-01"
+    },
+    {
+        "name": "Maggi Noodles (8-Pack)",
+        "category": "Snacks",
+        "price": 112,
+        "costPrice": 95,
+        "stock": 50,
+        "minStock": 15,
+        "expiryDate": "2025-09-30"
+    },
+    {
+        "name": "Aashirvaad Atta (10kg)",
+        "category": "Grocery",
+        "price": 460,
+        "costPrice": 410,
+        "stock": 4,
+        "minStock": 10,
+        "expiryDate": "2024-12-15"
+    },
+    {
+        "name": "Coca Cola (2L)",
+        "category": "Beverages",
+        "price": 95,
+        "costPrice": 80,
+        "stock": 24,
+        "minStock": 6,
+        "expiryDate": "2024-07-25"
+    },
+    {
+        "name": "Colgate MaxFresh (150g)",
+        "category": "Personal Care",
+        "price": 120,
+        "costPrice": 90,
+        "stock": 60,
+        "minStock": 12,
+        "expiryDate": "2026-11-11"
+    },
+    {
+        "name": "Vim Dishwash Bar (Large)",
+        "category": "Utility",
+        "price": 30,
+        "costPrice": 22,
+        "stock": 120,
+        "minStock": 30,
+        "expiryDate": "2027-02-14"
+    },
+    {
+        "name": "Surf Excel Matic (1kg)",
+        "category": "Utility",
+        "price": 210,
+        "costPrice": 185,
+        "stock": 20,
+        "minStock": 5,
+        "expiryDate": "2026-10-05"
+    },
+    {
+        "name": "Cadbury Silk Hazelnut",
+        "category": "Snacks",
+        "price": 175,
+        "costPrice": 140,
+        "stock": 15,
+        "minStock": 5,
+        "expiryDate": "2025-01-20"
+    },
+    {
+        "name": "Nescafe Classic (50g)",
+        "category": "Beverages",
+        "price": 160,
+        "costPrice": 135,
+        "stock": 2,
+        "minStock": 10,
+        "expiryDate": "2026-04-18"
+    },
+    {
+        "name": "Parle-G (Family Pack)",
+        "category": "Snacks",
+        "price": 80,
+        "costPrice": 65,
+        "stock": 75,
+        "minStock": 15,
+        "expiryDate": "2025-02-28"
+    }
+]

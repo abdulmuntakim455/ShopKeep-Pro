@@ -1,0 +1,634 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  LayoutDashboard,
+  Package,
+  ShoppingCart,
+  History,
+  Plus,
+  Search,
+  AlertTriangle,
+  TrendingUp,
+  Trash2,
+  Edit3,
+  CheckCircle2,
+  XCircle,
+  FileText,
+  Printer,
+  CreditCard,
+  User,
+  ArrowUpRight,
+  RefreshCw,
+  Wallet,
+  Smartphone,
+  Download,
+  ShieldCheck,
+  ShieldAlert,
+  Calendar,
+  BookOpen,
+  QrCode,
+  Receipt
+} from 'lucide-react';
+
+/**
+ * MERN STACK CONFIGURATION
+ */
+const API_BASE_URL = 'http://localhost:5000/api';
+
+const App = () => {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [isAdmin, setIsAdmin] = useState(true);
+  const [inventory, setInventory] = useState([]);
+  const [sales, setSales] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [editProduct, setEditProduct] = useState(null);
+
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [customerName, setCustomerName] = useState('');
+  const [inventoryFilter, setInventoryFilter] = useState('all');
+
+  // FETCH DATA FROM MONGODB
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [prodRes, salesRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/products`),
+        fetch(`${API_BASE_URL}/sales`)
+      ]);
+
+      if (prodRes.ok && salesRes.ok) {
+        const prodData = await prodRes.json();
+        const salesData = await salesRes.json();
+        setInventory(prodData);
+        setSales(salesData);
+      }
+    } catch (err) {
+      console.error("Failed to connect to backend:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Advanced Analytics (Computed from DB data)
+  const stats = useMemo(() => {
+    const totalRevenue = sales.reduce((acc, sale) => acc + sale.total, 0);
+    const totalProfit = sales.reduce((acc, sale) => {
+      const saleProfit = sale.items.reduce((pAcc, item) => {
+        // Find matching product in inventory to get costPrice
+        const product = inventory.find(p => p.name === item.name);
+        const cost = product?.costPrice || 0;
+        return pAcc + ((item.price - cost) * item.quantity);
+      }, 0);
+      return acc + saleProfit;
+    }, 0);
+
+    const lowStock = inventory.filter(i => i.stock <= i.minStock && i.stock > 0);
+    const outOfStock = inventory.filter(i => i.stock <= 0);
+
+    const today = new Date();
+    const expiringSoon = inventory.filter(i => {
+      if (!i.expiryDate) return false;
+      const exp = new Date(i.expiryDate);
+      const diffDays = (exp - today) / (1000 * 60 * 60 * 24);
+      return diffDays > 0 && diffDays < 90;
+    });
+
+    const khaataTotal = sales
+      .filter(s => s.paymentMethod === 'Credit (Udhaar)')
+      .reduce((acc, s) => acc + s.total, 0);
+
+    const productSalesMap = {};
+    sales.forEach(s => s.items.forEach(i => {
+      productSalesMap[i.name] = (productSalesMap[i.name] || 0) + i.quantity;
+    }));
+    const topProducts = Object.entries(productSalesMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+
+    return { totalRevenue, totalProfit, lowStock, outOfStock, expiringSoon, khaataTotal, topProducts };
+  }, [inventory, sales]);
+
+  // INTEGRATED POS LOGIC (SAVE TO DB)
+  const completeSale = async () => {
+    if (cart.length === 0) return;
+
+    const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const saleData = {
+      items: cart.map(item => ({
+        _id: item._id, // Send ID so backend can deduct stock
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity
+      })),
+      total,
+      paymentMethod,
+      customerName: customerName || (paymentMethod === 'Credit (Udhaar)' ? "Untitled Customer" : "Walk-in"),
+    };
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/sales`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(saleData)
+      });
+
+      if (res.ok) {
+        // Re-fetch data to get updated stock levels and new history from DB
+        fetchData();
+        setCart([]);
+        setCustomerName('');
+        setPaymentMethod('Cash');
+        setActiveTab('history');
+      } else {
+        alert("Transaction failed on server");
+      }
+    } catch (err) {
+      alert("Error connecting to database");
+    }
+  };
+
+  const addToCart = (product) => {
+    if (product.stock <= 0) return;
+    setCart(prev => {
+      const existing = prev.find(item => item._id === product._id);
+      if (existing) {
+        if (existing.quantity >= product.stock) return prev;
+        return prev.map(item => item._id === product._id ? { ...item, quantity: item.quantity + 1 } : item);
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
+  };
+
+  // INTEGRATED INVENTORY LOGIC (SAVE TO DB)
+  const handleAddOrEdit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const productData = {
+      name: formData.get('name'),
+      category: formData.get('category'),
+      expiryDate: formData.get('expiryDate'),
+      price: parseFloat(formData.get('price')),
+      costPrice: parseFloat(formData.get('costPrice')),
+      stock: parseInt(formData.get('stock')),
+      minStock: parseInt(formData.get('minStock'))
+    };
+
+    try {
+      let response;
+      if (editProduct) {
+        // UPDATE EXISTING
+        response = await fetch(`${API_BASE_URL}/products/${editProduct._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(productData)
+        });
+      } else {
+        // CREATE NEW
+        response = await fetch(`${API_BASE_URL}/products`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(productData)
+        });
+      }
+
+      if (response.ok) {
+        fetchData(); // Refresh list from DB
+        setIsAddingProduct(false);
+        setEditProduct(null);
+      }
+    } catch (err) {
+      console.error("Error saving product:", err);
+    }
+  };
+
+  const deleteProduct = async (id) => {
+    if (window.confirm("Are you sure you want to delete this product?")) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/products/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          setInventory(prev => prev.filter(p => p._id !== id));
+        }
+      } catch (err) {
+        console.error("Error deleting product:", err);
+      }
+    }
+  };
+
+  // Logic for filtered inventory view
+  const filteredInventory = inventory.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase());
+    if (inventoryFilter === 'low') return matchesSearch && item.stock <= (item.minStock || 5) && item.stock > 0;
+    if (inventoryFilter === 'out') return matchesSearch && item.stock <= 0;
+    if (inventoryFilter === 'expiring') return matchesSearch && stats.expiringSoon.some(e => e._id === item._id);
+    return matchesSearch;
+  });
+
+  const exportToCSV = (type) => {
+    const data = type === 'inventory' ? inventory : sales;
+    if (data.length === 0) return;
+    const headers = Object.keys(data[0]);
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => headers.map(h => JSON.stringify(row[h] || "")).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${type}_report.csv`;
+    a.click();
+  };
+
+  const downloadBill = (sale) => {
+    const invoiceId = `INV-${sale._id.slice(-6).toUpperCase()}`;
+    let bill = `SHOPKEEP PRO - INVOICE\n==========================\nID: ${invoiceId}\nCustomer: ${sale.customerName}\nDate: ${new Date(sale.timestamp).toLocaleString()}\n--------------------------\n`;
+    sale.items.forEach(i => {
+      bill += `${i.name.padEnd(15)} x${i.quantity}  ₹${i.price * i.quantity}\n`;
+    });
+    bill += `--------------------------\nTOTAL: ₹${sale.total}\n==========================\nThank you!`;
+
+    const blob = new Blob([bill], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Bill_${invoiceId}.txt`;
+    a.click();
+  };
+
+  if (loading && inventory.length === 0) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="animate-spin text-indigo-600" size={48} />
+          <p className="font-bold text-slate-500">Connecting to Database...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0">
+        <div className="p-6 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="bg-indigo-600 p-2 rounded-xl shadow-lg">
+              <Package className="text-white w-6 h-6" />
+            </div>
+            <h1 className="font-extrabold text-xl tracking-tight">ShopKeep <span className="text-indigo-600">Pro</span></h1>
+          </div>
+        </div>
+
+        <nav className="flex-1 p-4 space-y-1">
+          {[
+            { id: 'dashboard', label: 'Analytics', icon: LayoutDashboard },
+            { id: 'inventory', label: 'Inventory', icon: Package },
+            { id: 'pos', label: 'Billing / POS', icon: ShoppingCart },
+            { id: 'khaata', label: 'Khaata Ledger', icon: BookOpen },
+            { id: 'history', label: 'Sales History', icon: History }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              <tab.icon size={20} />
+              <span className="font-semibold">{tab.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="p-4 border-t space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">User Mode</span>
+            {isAdmin ? <ShieldCheck size={16} className="text-indigo-600" /> : <ShieldAlert size={16} className="text-amber-500" />}
+          </div>
+          <button
+            onClick={() => setIsAdmin(!isAdmin)}
+            className={`w-full py-2 rounded-xl text-xs font-black transition-all border ${isAdmin ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+          >
+            {isAdmin ? 'OWNER MODE' : 'STAFF MODE'}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto p-8 relative">
+        <div className="flex justify-between items-end mb-8">
+          <div>
+            <h2 className="text-3xl font-black text-slate-800 tracking-tight capitalize">{activeTab}</h2>
+            <p className="text-slate-500 font-medium">Synced with MongoDB Atlas</p>
+          </div>
+          <div className="flex gap-3">
+            {activeTab === 'inventory' && (
+              <>
+                <button onClick={() => exportToCSV('inventory')} className="p-3 bg-white border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all shadow-sm"><Download size={20} /></button>
+                <button onClick={() => { setEditProduct(null); setIsAddingProduct(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl flex items-center gap-2 shadow-lg active:scale-95 transition-all"><Plus size={20} strokeWidth={3} /><span className="font-bold">New Item</span></button>
+              </>
+            )}
+            {activeTab === 'history' && (
+              <button onClick={() => exportToCSV('sales')} className="bg-white border border-slate-200 text-slate-600 px-6 py-3 rounded-2xl flex items-center gap-2 shadow-sm"><Download size={20} /><span className="font-bold">Export Sales</span></button>
+            )}
+          </div>
+        </div>
+
+        {/* Dashboard View */}
+        {activeTab === 'dashboard' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100">
+                <div className="bg-blue-50 text-blue-600 w-10 h-10 rounded-2xl flex items-center justify-center mb-4 font-bold">₹</div>
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Total Revenue</p>
+                <h3 className="text-2xl font-black text-slate-800">₹{stats.totalRevenue.toLocaleString('en-IN')}</h3>
+              </div>
+              {isAdmin && (
+                <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100">
+                  <div className="bg-emerald-50 text-emerald-600 w-10 h-10 rounded-2xl flex items-center justify-center mb-4"><TrendingUp size={20} /></div>
+                  <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Estimated Profit</p>
+                  <h3 className="text-2xl font-black text-slate-800">₹{stats.totalProfit.toLocaleString('en-IN')}</h3>
+                </div>
+              )}
+              <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100">
+                <div className="bg-amber-50 text-amber-600 w-10 h-10 rounded-2xl flex items-center justify-center mb-4"><BookOpen size={20} /></div>
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Total Credit</p>
+                <h3 className="text-2xl font-black text-slate-800">₹{stats.khaataTotal.toLocaleString('en-IN')}</h3>
+              </div>
+              <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100">
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mb-4 ${stats.expiringSoon.length > 0 ? 'bg-rose-50 text-rose-600' : 'bg-slate-50 text-slate-400'}`}><Calendar size={20} /></div>
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Expiry Alerts</p>
+                <h3 className="text-2xl font-black text-slate-800">{stats.expiringSoon.length}</h3>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden lg:col-span-1">
+                <div className="p-6 border-b border-slate-50 font-black text-slate-800">Fastest Moving</div>
+                <div className="p-4 space-y-4">
+                  {stats.topProducts.map(([name, qty], idx) => (
+                    <div key={idx} className="flex items-center gap-4">
+                      <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">#{idx + 1}</div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-slate-800">{name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">{qty} units sold</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden lg:col-span-2">
+                <div className="p-6 border-b border-slate-50 font-black text-slate-800">Stock & Expiry Alerts</div>
+                <div className="divide-y divide-slate-50">
+                  {stats.expiringSoon.concat(stats.lowStock.slice(0, 3)).map((item, idx) => (
+                    <div key={idx} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-xl ${item.stock <= item.minStock ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'}`}>
+                          {item.stock <= item.minStock ? <AlertTriangle size={18} /> : <Calendar size={18} />}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm">{item.name}</p>
+                          <p className="text-[10px] text-slate-400 font-black uppercase">
+                            {item.stock <= item.minStock ? `Only ${item.stock} left` : `Expires on ${new Date(item.expiryDate).toLocaleDateString()}`}
+                          </p>
+                        </div>
+                      </div>
+                      <button onClick={() => setActiveTab('inventory')} className="text-[10px] font-black text-indigo-600 uppercase">Restock</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Inventory View */}
+        {activeTab === 'inventory' && (
+          <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row items-center gap-4">
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  type="text" placeholder="Search products..."
+                  className="w-full pl-12 pr-4 py-3 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+                  value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-1 bg-slate-50 p-1.5 rounded-2xl shrink-0">
+                {['all', 'low', 'out', 'expiring'].map(f => (
+                  <button key={f} onClick={() => setInventoryFilter(f)} className={`px-4 py-2 rounded-xl text-xs font-black capitalize transition-all ${inventoryFilter === f ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-400'}`}>{f}</button>
+                ))}
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                  <tr>
+                    <th className="px-6 py-5">Product Details</th>
+                    <th className="px-6 py-5">Pricing (₹)</th>
+                    {isAdmin && <th className="px-6 py-5">Margin</th>}
+                    <th className="px-6 py-5">Stock & Expiry</th>
+                    <th className="px-6 py-5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {filteredInventory.map(item => (
+                    <tr key={item._id} className="hover:bg-slate-50/50 group transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-slate-800">{item.name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">{item.category}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-black text-slate-800">₹{item.price}</p>
+                        {isAdmin && <p className="text-[10px] text-slate-400 font-bold">Cost: ₹{item.costPrice}</p>}
+                      </td>
+                      {isAdmin && (
+                        <td className="px-6 py-4 font-bold text-emerald-600">
+                          ₹{(item.price - item.costPrice).toFixed(2)}
+                        </td>
+                      )}
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1">
+                          <span className={`px-3 py-1 rounded-full text-[9px] font-black inline-block w-max ${item.stock <= item.minStock ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-600'}`}>
+                            {item.stock} UNITS
+                          </span>
+                          {item.expiryDate && (
+                            <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+                              <Calendar size={10} /> {new Date(item.expiryDate).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => { setEditProduct(item); setIsAddingProduct(true); }} className="p-2 hover:bg-slate-200 rounded-xl text-slate-500"><Edit3 size={16} /></button>
+                          <button onClick={() => deleteProduct(item._id)} className="p-2 hover:bg-rose-50 text-rose-500 rounded-xl"><Trash2 size={16} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Khaata Ledger */}
+        {activeTab === 'khaata' && (
+          <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="bg-amber-600 text-white p-6 rounded-[32px] w-max pr-12">
+              <p className="text-amber-100 text-xs font-black uppercase tracking-widest mb-2">Total Outstanding</p>
+              <h3 className="text-3xl font-black">₹{stats.khaataTotal.toLocaleString('en-IN')}</h3>
+            </div>
+            <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                  <tr>
+                    <th className="px-6 py-5">Customer Name</th>
+                    <th className="px-6 py-5">Date</th>
+                    <th className="px-6 py-5">Amount Due</th>
+                    <th className="px-6 py-5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 font-medium">
+                  {sales.filter(s => s.paymentMethod === 'Credit (Udhaar)').map(sale => (
+                    <tr key={sale._id}>
+                      <td className="px-6 py-4 font-bold text-slate-800">{sale.customerName}</td>
+                      <td className="px-6 py-4 text-slate-500">{new Date(sale.timestamp).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 font-black text-rose-600">₹{sale.total}</td>
+                      <td className="px-6 py-4 text-right">
+                        <button className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-black">Settle</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* POS / Billing */}
+        {activeTab === 'pos' && (
+          <div className="flex flex-col lg:flex-row gap-8 animate-in fade-in duration-500">
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 auto-rows-max">
+              {inventory.filter(i => i.stock > 0).map(item => (
+                <button key={item._id} onClick={() => addToCart(item)} className="p-5 bg-white rounded-3xl border border-slate-100 shadow-sm text-left hover:border-indigo-500 transition-all active:scale-[0.98] group">
+                  <p className="font-black text-slate-800">{item.name}</p>
+                  <div className="flex justify-between items-center mt-4">
+                    <span className="text-indigo-600 font-black text-lg">₹{item.price}</span>
+                    <Plus size={18} className="text-indigo-400" />
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="w-full lg:w-[400px] flex flex-col gap-6">
+              <div className="bg-white rounded-[40px] p-8 shadow-2xl border border-slate-100 h-[500px] flex flex-col">
+                <h4 className="font-black text-xl text-slate-800 mb-6 flex items-center gap-2"><ShoppingCart size={24} className="text-indigo-600" /> Cart</h4>
+                <div className="flex-1 overflow-y-auto space-y-3">
+                  {cart.map(i => (
+                    <div key={i._id} className="p-4 bg-slate-50 rounded-2xl flex justify-between items-center">
+                      <div>
+                        <p className="font-black text-sm text-slate-800">{i.name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold">{i.quantity} x ₹{i.price}</p>
+                      </div>
+                      <button onClick={() => setCart(c => c.filter(x => x._id !== i._id))} className="text-rose-400"><Trash2 size={16} /></button>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-6 mt-4 border-t-2 border-dashed border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total</p>
+                  <p className="font-black text-3xl text-indigo-600">₹{cart.reduce((a, b) => a + (b.price * b.quantity), 0)}</p>
+                </div>
+              </div>
+
+              <div className="bg-indigo-600 rounded-[40px] p-8 text-white space-y-6">
+                <input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Customer Name" className="w-full bg-white/10 border-none rounded-xl py-3 px-4 text-sm placeholder:text-white/30" />
+                <div className="grid grid-cols-2 gap-2">
+                  {['Cash', 'UPI', 'Credit (Udhaar)'].map(m => (
+                    <button key={m} onClick={() => setPaymentMethod(m)} className={`py-2 rounded-xl text-[10px] font-black transition-all ${paymentMethod === m ? 'bg-white text-indigo-600' : 'bg-white/10 text-white/70'}`}>{m}</button>
+                  ))}
+                </div>
+                <button onClick={completeSale} disabled={cart.length === 0} className="w-full bg-white text-indigo-600 py-4 rounded-2xl font-black shadow-xl active:scale-95 transition-all text-xs uppercase tracking-widest">Process Transaction</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* History View */}
+        {activeTab === 'history' && (
+          <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                  <tr>
+                    <th className="px-6 py-5">Date</th>
+                    <th className="px-6 py-5">Customer</th>
+                    <th className="px-6 py-5">Summary</th>
+                    <th className="px-6 py-5">Total</th>
+                    <th className="px-6 py-5 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {sales.map(s => (
+                    <tr key={s._id}>
+                      <td className="px-6 py-4 text-slate-500">{new Date(s.timestamp).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 font-bold text-slate-800">{s.customerName}</td>
+                      <td className="px-6 py-4 text-[10px] text-slate-500">
+                        {s.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
+                      </td>
+                      <td className="px-6 py-4 font-black text-slate-800">₹{s.total}</td>
+                      <td className="px-6 py-4 text-right">
+                        <button onClick={() => downloadBill(s)} className="text-indigo-600 hover:underline flex items-center gap-1 ml-auto font-bold"><Download size={14} /> Bill</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Product Modal */}
+        {isAddingProduct && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-[48px] w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+              <div className="p-10 border-b bg-indigo-600 text-white flex justify-between items-center">
+                <h3 className="font-black text-2xl">{editProduct ? 'Edit Item' : 'Add Item'}</h3>
+                <button onClick={() => setIsAddingProduct(false)}><XCircle size={32} /></button>
+              </div>
+              <form onSubmit={handleAddOrEdit} className="p-10 space-y-5">
+                <input required name="name" placeholder="Item Name" defaultValue={editProduct?.name} className="w-full p-4 bg-slate-50 rounded-2xl font-bold" />
+                <div className="grid grid-cols-2 gap-5">
+                  <input required name="category" placeholder="Category" defaultValue={editProduct?.category} className="w-full p-4 bg-slate-50 rounded-2xl font-bold" />
+                  <input name="expiryDate" type="date" defaultValue={editProduct?.expiryDate} className="w-full p-4 bg-slate-50 rounded-2xl font-bold" />
+                </div>
+                <div className="grid grid-cols-2 gap-5">
+                  <input required name="price" type="number" step="0.01" placeholder="Selling Price" defaultValue={editProduct?.price} className="w-full p-4 bg-slate-50 rounded-2xl font-bold" />
+                  <input required name="costPrice" type="number" step="0.01" placeholder="Cost Price" defaultValue={editProduct?.costPrice} className="w-full p-4 bg-slate-50 rounded-2xl font-bold" />
+                </div>
+                <div className="grid grid-cols-2 gap-5">
+                  <input required name="stock" type="number" placeholder="Initial Stock" defaultValue={editProduct?.stock} className="w-full p-4 bg-slate-50 rounded-2xl font-bold" />
+                  <input required name="minStock" type="number" placeholder="Min Alert" defaultValue={editProduct?.minStock || 5} className="w-full p-4 bg-slate-50 rounded-2xl font-bold" />
+                </div>
+                <div className="pt-4 flex gap-4">
+                  <button type="button" onClick={() => setIsAddingProduct(false)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black">Cancel</button>
+                  <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black">Save to DB</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+};
+
+export default App;
